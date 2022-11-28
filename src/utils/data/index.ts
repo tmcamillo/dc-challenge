@@ -130,3 +130,9 @@ export interface Social2 {
   twitter_username: string;
   paypal_email: string;
 }
+
+export interface SearchUnplashedRoot {
+  total: number;
+  total_pages: number;
+  results: UnplashedRoot[];
+}

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { fetchPhotos } from './services/photos';
+import { fetchPhotos, searchPhotos } from './services/photos';
 import { UnplashedRoot } from './utils/data';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import Masonry from 'react-masonry-css';
 import Modal from './components/Modal/Moda';
+import Input from './components/Input/Input';
+import useDebounce from './customHooks/useDebounce';
 
 const breakpointColumnsObj = {
   default: 3,
@@ -17,9 +19,17 @@ function App(): JSX.Element {
   const [listPhotos, setListPhotos] = useState<UnplashedRoot[]>([]);
   const [hasMore, sethasMore] = useState(true);
   const [page, setpage] = useState(1);
+  const [inputSearch, setInputSearch] = useState('');
+  const debouncedValue = useDebounce<string>(inputSearch, 500);
 
   const fetchMoreData = async () => {
-    const othersPhotos = await fetchPhotos(page);
+    let othersPhotos;
+    if (debouncedValue) {
+      const items = await searchPhotos({ page, query: debouncedValue });
+      othersPhotos = items.results;
+    } else {
+      othersPhotos = await fetchPhotos(page);
+    }
     setListPhotos([...listPhotos, ...othersPhotos]);
     if (othersPhotos.length === 0) {
       sethasMore(false);
@@ -38,20 +48,43 @@ function App(): JSX.Element {
     setIsOpen(true);
   };
 
-  useEffect(() => {
-    const fetchFirstPhotos = async () => {
-      const photos = await fetchPhotos(page);
-      if (photos.length > 0) {
-        setListPhotos(photos);
-      }
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputSearch(e.target.value);
+  };
+
+  const fetchFirstPhotos = async () => {
+    const photos = await fetchPhotos(page);
+    if (photos.length > 0) {
+      setListPhotos(photos);
       setpage(2);
-    };
-    fetchFirstPhotos();
-  }, []);
+    }
+  };
+
+  const searchFirstPhotos = async () => {
+    const photos = await searchPhotos({ page: 1, query: debouncedValue });
+    if (photos?.results?.length > 0) {
+      setListPhotos(photos.results);
+      setpage(2);
+    }
+  };
+
+  useEffect(() => {
+    if (debouncedValue) {
+      searchFirstPhotos();
+    } else {
+      fetchFirstPhotos();
+    }
+  }, [debouncedValue]);
 
   return (
     <main className='max-w-screen-xl mx-auto my-0'>
-      <h1 className='text-3xl font-bold my-4'>Hello World</h1>
+      <Input
+        id='search'
+        value={inputSearch}
+        label='Search for free high resolution photos'
+        placeholder='search for a specific word'
+        onChange={(e) => handleSearch(e)}
+      />
       <ul>
         <InfiniteScroll
           dataLength={listPhotos.length}
